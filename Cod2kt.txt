@@ -1,0 +1,144 @@
+Cod:
+
+abstract class Planet {
+    abstract val name: String
+    abstract val radius: Double
+    abstract val mass: Double
+    abstract val moonsCount: Int
+    abstract val distanceFromEarth: Double
+
+    override fun toString(): String {
+        val typeName = when (this) {
+            is TerrestrialPlanet -> "Планета земного типа"
+            is GasGiant -> "Газовый гигант"
+            is IceGiant -> "Ледяной гигант"
+            is DwarfPlanet -> "Карликовая планета"
+            else -> "Неизвестный тип"
+        }
+        return "$typeName: $name\nРадиус: $radius км.\nМасса: $mass ⊕.\nСпутников: $moonsCount шт.\nУдаленность: $distanceFromEarth а.е.\n"
+    }
+}
+
+class TerrestrialPlanet(
+    override val name: String,
+    override val radius: Double,
+    override val mass: Double,
+    override val moonsCount: Int,
+    override val distanceFromEarth: Double
+) : Planet()
+
+class GasGiant(
+    override val name: String,
+    override val radius: Double,
+    override val mass: Double,
+    override val moonsCount: Int,
+    override val distanceFromEarth: Double
+) : Planet()
+
+class IceGiant(
+    override val name: String,
+    override val radius: Double,
+    override val mass: Double,
+    override val moonsCount: Int,
+    override val distanceFromEarth: Double
+) : Planet()
+
+class DwarfPlanet(
+    override val name: String,
+    override val radius: Double,
+    override val mass: Double,
+    override val moonsCount: Int,
+    override val distanceFromEarth: Double
+) : Planet()
+
+//---------------------------------------------------------------------------------------------
+
+fun main() {
+
+    val userPlanets = mutableListOf<Planet>()
+
+    while (true) {
+        if (userPlanets.isEmpty()) {
+            println("\nСписок планет пуст.")
+        } else {
+            println("\n--- Список планет ---")
+            userPlanets.forEachIndexed { index, planet ->
+                println("${index + 1}: ${planet.name}")
+            }
+        }
+
+        println("\n1. Добавить новую планету")
+        println("2. Удалить планету по номеру")
+        println("3. Сравнить планеты")
+        println("4. Выход")
+        print("Выберите действие (1-4): ")
+
+        when (readlnOrNull()?.trim()) {
+            "1" -> {
+                print("\nВведите имя планеты: ")
+                val name = readlnOrNull() ?: "NullPlanet"
+
+                print("Введите тип (1 - Земной, 2 - Газовый, 3 - Ледяной, 4 - Карликовая): ")
+                val type = readlnOrNull() ?: "1"
+
+                print("Введите радиус (км): ")
+                val radius = readlnOrNull()?.toDoubleOrNull() ?: 0.0
+
+                print("Введите массу (в массах Земли ⊕): ")
+                val mass = readlnOrNull()?.toDoubleOrNull() ?: 0.0
+
+                print("Введите количество спутников: ")
+                val moons = readlnOrNull()?.toIntOrNull() ?: 0
+
+                print("Введите удаленность от Земли (а.е.): ")
+                val distance = readlnOrNull()?.toDoubleOrNull() ?: 0.0
+
+                val newPlanet = when (type) {
+                    "1" -> TerrestrialPlanet(name, radius, mass, moons, distance)
+                    "2" -> GasGiant(name, radius, mass, moons, distance)
+                    "3" -> IceGiant(name, radius, mass, moons, distance)
+                    "4" -> DwarfPlanet(name, radius, mass, moons, distance)
+                    else -> TerrestrialPlanet(name, radius, mass, moons, distance)
+                }
+                userPlanets.add(newPlanet)
+            }
+
+            "2" -> {
+                if (userPlanets.isEmpty()) {
+                    continue
+                }
+                print("\nВведите номер планеты для удаления (от 1 до ${userPlanets.size}): ")
+                val indexInput = readlnOrNull()?.toIntOrNull()
+
+                if (indexInput != null && indexInput in 1..userPlanets.size) {
+                    val removed = userPlanets.removeAt(indexInput - 1)
+                    println("Планета \"${removed.name}\" успешно удалена.")
+                } else {
+                    println("Неверный номер!")
+                }
+            }
+
+            "3" -> {
+                if (userPlanets.size < 2) {
+                    continue
+                }
+                val maxRadius = userPlanets.maxByOrNull { it.radius }
+                val maxMass = userPlanets.maxByOrNull { it.mass }
+                val maxMoons = userPlanets.maxByOrNull { it.moonsCount }
+                val farthest = userPlanets.maxByOrNull { it.distanceFromEarth }
+
+                println("\nСамая большая (по радиусу): ${maxRadius?.name} (${maxRadius?.radius} км.)")
+                println("Самая тяжелая (по массе): ${maxMass?.name} (${maxMass?.mass} ⊕)")
+                println("Больше всего спутников: ${maxMoons?.name} (${maxMoons?.moonsCount} шт.)")
+                println("Самая удаленная от Земли: ${farthest?.name} (${farthest?.distanceFromEarth} а.е.)")
+            }
+
+            "4" -> {
+                println("\nПрограмма завершена.")
+                break
+            }
+
+            else -> println("\nНеверный ввод. Выберите пункт от 1 до 4.")
+        }
+    }
+}

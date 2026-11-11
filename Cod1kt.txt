@@ -1,0 +1,249 @@
+Cod:
+import kotlin.math.*
+
+fun main() {
+    print("Введите пример: ")
+    val input = readln()
+    try {
+        val result = calculate(input)
+        println("Результат: $result")
+    } catch (e: Exception) {
+        println("Ошибка: ${e.message}")
+    }
+}
+
+fun calculate(text: String): Double {
+    // 1. Убираем пробелы
+    var s = text.replace(" ", "")
+
+    // 2. Проверяем скобки
+    var check = 0
+    for (c in s) {
+        if (c == '(') check++
+        if (c == ')') check--
+        if (check < 0) throw Exception("Лишняя закрывающая скобка")
+    }
+    if (check > 0) throw Exception("Недостающая закрывающая скобка")
+
+    // 3. Разворачиваем скобки: пока есть "(", берём самую внутреннюю
+    while (s.contains('(')) {
+        val close = s.indexOf(')')          // первая закрывающая
+        val open = s.lastIndexOf('(', close) // ближайшая открывающая слева
+
+        val inside = s.substring(open + 1, close) // что внутри скобок
+        val value = calcNoBrackets(inside)        // считаем это
+
+        // Заменяем всю скобку "(...)" на её значение
+        s = s.substring(0, open) + value + s.substring(close + 1)
+    }
+
+    // 4. Скобок больше нет — считаем остаток
+    return calcNoBrackets(s)
+}
+
+// Считает выражение БЕЗ скобок
+fun calcNoBrackets(expr: String): Double {
+    var s = expr
+
+    // Шаг 1: функции sin(...), cos(...), sqrt(...), pow(...)
+    s = calcFunctions(s)
+
+    // Шаг 2: степень "^"
+    s = calcPower(s)
+
+    // Шаг 3: умножение и деление
+    s = calcMulDiv(s)
+
+    // Шаг 4: сложение и вычитание
+    s = calcAddSub(s)
+
+    return s.toDouble()
+}
+
+// -------- ФУНКЦИИ: sin, cos, sqrt, pow --------
+fun calcFunctions(s: String): String {
+    var text = s
+
+    while (true) {
+        // Ищем ближайшую функцию
+        val sinIdx = text.indexOf("sin(")
+        val cosIdx = text.indexOf("cos(")
+        val sqrtIdx = text.indexOf("sqrt(")
+        val powIdx = text.indexOf("pow(")
+
+        // Собираем все индексы, которые нашли (>= 0)
+        val indexes = mutableListOf<Int>()
+        if (sinIdx >= 0) indexes.add(sinIdx)
+        if (cosIdx >= 0) indexes.add(cosIdx)
+        if (sqrtIdx >= 0) indexes.add(sqrtIdx)
+        if (powIdx >= 0) indexes.add(powIdx)
+
+        if (indexes.isEmpty()) break // функций больше нет
+
+        val idx = indexes.min() // самая левая функция
+
+        // Определяем, что это за функция
+        val name: String
+        val argStart: Int
+        if (text.startsWith("sin(", idx)) {
+            name = "sin"; argStart = idx + 4
+        } else if (text.startsWith("cos(", idx)) {
+            name = "cos"; argStart = idx + 4
+        } else if (text.startsWith("sqrt(", idx)) {
+            name = "sqrt"; argStart = idx + 5
+        } else {
+            name = "pow"; argStart = idx + 4
+        }
+
+        // Ищем закрывающую скобку для этой функции
+        var depth = 1
+        var i = argStart
+        while (depth > 0) {
+            if (text[i] == '(') depth++
+            if (text[i] == ')') depth--
+            if (depth == 0) break
+            i++
+        }
+        val close = i
+        val args = text.substring(argStart, close) // "2,3" для pow, "5" для sin
+
+        // Считаем значение
+        val value: Double
+        if (name == "pow") {
+            val comma = args.indexOf(',')
+            if (comma < 0) throw Exception("pow требует два аргумента")
+            val a = calcNoBrackets(args.substring(0, comma))
+            val b = calcNoBrackets(args.substring(comma + 1))
+            value = a.pow(b)
+        } else {
+            val x = calcNoBrackets(args)
+            value = when (name) {
+                "sin"  -> sin(x)
+                "cos"  -> cos(x)
+                "sqrt" -> {
+                    if (x < 0) throw Exception("Корень из отрицательного числа")
+                    sqrt(x)
+                }
+                else -> throw Exception("Неизвестная функция")
+            }
+        }
+
+        // Заменяем "sin(...)" на значение
+        text = text.substring(0, idx) + value + text.substring(close + 1)
+    }
+
+    return text
+}
+
+// -------- СТЕПЕНЬ: 2^3 --------
+fun calcPower(s: String): String {
+    var text = s
+    while (text.contains('^')) {
+        val idx = text.indexOf('^')
+
+        // Ищем левое число
+        var leftStart = idx - 1
+        while (leftStart >= 0 && (text[leftStart].isDigit() || text[leftStart] == '.' ||
+                    text[leftStart] == '-' && (leftStart == 0 || text[leftStart - 1] == '*' || text[leftStart - 1] == '/' || text[leftStart - 1] == '+'))) {
+            leftStart--
+        }
+        leftStart++
+
+        // Ищем правое число
+        var rightEnd = idx + 1
+        while (rightEnd < text.length && (text[rightEnd].isDigit() || text[rightEnd] == '.')) {
+            rightEnd++
+        }
+
+        val a = text.substring(leftStart, idx).toDouble()
+        val b = text.substring(idx + 1, rightEnd).toDouble()
+        val value = a.pow(b)
+
+        text = text.substring(0, leftStart) + value + text.substring(rightEnd)
+    }
+    return text
+}
+
+// -------- УМНОЖЕНИЕ И ДЕЛЕНИЕ: * / --------
+fun calcMulDiv(s: String): String {
+    var text = s
+    while (true) {
+        // Ищем * или / (первое слева)
+        var idx = -1
+        var op = ' '
+        for (i in 1 until text.length) {
+            if (text[i] == '*' || text[i] == '/') {
+                idx = i
+                op = text[i]
+                break
+            }
+        }
+        if (idx < 0) break
+
+        // Левое число
+        var leftStart = idx - 1
+        while (leftStart >= 0 && (text[leftStart].isDigit() || text[leftStart] == '.' ||
+                    (text[leftStart] == '-' && leftStart == 0))) {
+            leftStart--
+        }
+        leftStart++
+
+        // Правое число
+        var rightEnd = idx + 1
+        while (rightEnd < text.length && (text[rightEnd].isDigit() || text[rightEnd] == '.')) {
+            rightEnd++
+        }
+
+        val a = text.substring(leftStart, idx).toDouble()
+        val b = text.substring(idx + 1, rightEnd).toDouble()
+
+        val value = if (op == '*') a * b else {
+            if (b == 0.0) throw Exception("Деление на ноль")
+            a / b
+        }
+
+        text = text.substring(0, leftStart) + value + text.substring(rightEnd)
+    }
+    return text
+}
+
+// -------- СЛОЖЕНИЕ И ВЫЧИТАНИЕ: + - --------
+fun calcAddSub(s: String): String {
+    var text = s
+    while (true) {
+        // Ищем + или - (не в начале строки)
+        var idx = -1
+        var op = ' '
+        for (i in 1 until text.length) {
+            if (text[i] == '+' || text[i] == '-') {
+                // Проверяем, что это оператор, а не знак числа (после него не буква и не сразу число в начале)
+                idx = i
+                op = text[i]
+                break
+            }
+        }
+        if (idx < 0) break
+
+        // Левое число
+        var leftStart = idx - 1
+        while (leftStart >= 0 && (text[leftStart].isDigit() || text[leftStart] == '.' ||
+                    (text[leftStart] == '-' && leftStart == 0))) {
+            leftStart--
+        }
+        leftStart++
+
+        // Правое число
+        var rightEnd = idx + 1
+        while (rightEnd < text.length && (text[rightEnd].isDigit() || text[rightEnd] == '.')) {
+            rightEnd++
+        }
+
+        val a = text.substring(leftStart, idx).toDouble()
+        val b = text.substring(idx + 1, rightEnd).toDouble()
+
+        val value = if (op == '+') a + b else a - b
+
+        text = text.substring(0, leftStart) + value + text.substring(rightEnd)
+    }
+    return text
+}
